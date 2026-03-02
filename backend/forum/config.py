@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: Literal["development", "production"] = "development"
 
-    CORS: list[str] = ["*"]
+    CORS: list[str]
 
     @computed_field
     @property

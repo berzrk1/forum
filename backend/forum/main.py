@@ -45,4 +45,4 @@ app.add_middleware(
 
 @app.get("/healthcheck")
 def healthcheck():
-    return {"status": settings.CORS}
+    return {"status": "ok", "environment": settings.ENVIRONMENT}
