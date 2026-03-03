@@ -16,22 +16,42 @@ Base = declarative_base()
 
 log = logging.getLogger(__name__)
 
-if settings.is_development:
-    engine = create_async_engine(str(settings.DATABASE_URI))
-else:
-    ssl_ctx = ssl.create_default_context(
-        ssl.Purpose.CLIENT_AUTH, cafile="/certs/global-bundle.pem"
-    )
-    engine = create_async_engine(
-        str(settings.DATABASE_URI), connect_args={"ssl": ssl_ctx}
-    )
+_engine = None
+_sessionlocal = None
 
-sessionlocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+def get_engine():
+    """Create engine only when explicitly called, and reuse it in subsequent calls."""
+    global _engine
+
+    if _engine is None:
+        # First time the engine gets called
+        if settings.is_development:
+            _engine = create_async_engine(str(settings.DATABASE_URI))
+        else:
+            ssl_ctx = ssl.create_default_context(
+                ssl.Purpose.CLIENT_AUTH, cafile="/certs/global-bundle.pem"
+            )
+            _engine = create_async_engine(
+                str(settings.DATABASE_URI), connect_args={"ssl": ssl_ctx}
+            )
+    return _engine
+
+
+def get_sessionlocal():
+    """Create session only when explicitly called, and reuse it in subsequent calls."""
+    global _sessionlocal
+
+    if _sessionlocal is None:
+        _sessionlocal = async_sessionmaker(
+            get_engine(), class_=AsyncSession, expire_on_commit=False
+        )
+    return _sessionlocal
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Get database session with auto-commit."""
-    session = sessionlocal()
+    session = get_sessionlocal()()
     try:
         yield session
         await session.commit()
