@@ -1,7 +1,7 @@
-import boto3
-
 from typing import Literal
+from urllib.parse import quote
 
+import boto3
 from pydantic import PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -59,7 +59,7 @@ class Settings(BaseSettings):
         return PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
-            password=auth_token,
+            password=quote(auth_token, safe=""),
             host=self.POSTGRES_HOST,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
