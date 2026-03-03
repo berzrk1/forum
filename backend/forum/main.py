@@ -10,6 +10,7 @@ from forum.auth import utils
 from forum.config import settings
 from forum.database.core import sessionlocal
 from forum.cache.core import get_cache_pool
+from forum.cache.repository import cache_repo
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -22,6 +23,8 @@ async def lifespan(app: FastAPI):
     app.state.cache = redis.Redis(connection_pool=get_cache_pool())
     async with sessionlocal() as session:
         await utils.init_roles(session)
+        # Load cache from database
+        await cache_repo.load_from_db(app.state.cache, session)
 
     # before
     yield

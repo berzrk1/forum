@@ -1,20 +1,29 @@
 import logging
 
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func, select
 
 from forum.auth.schemas import UserRead
+from forum.post.models import Post
+from forum.thread.models import Thread
 
 log = logging.getLogger(__name__)
 
 RECENT_USERS_KEY = "recent_users"
 LAST_N = 10
-USER_POSTS_KEY = "user_posts"
-FORUM_POSTS_KEY = "forum_posts"
-FORUM_THREADS_KEY = "forum_threads"
+NUM_POSTS_PER_USER = "user_posts"
+NUM_POSTS_PER_FORUM = "forum_posts"
+NUM_THREADS_PER_FORUM = "forum_threads"
 
 
 class CacheRepository:
-    """Repository for caching user activity, thread/post counts and forum stats."""
+    """
+    Repository for caching. Some of the features are:
+    - Caching user activity,
+    - Caching thread/post counts
+    - Loading from database
+    """
 
     async def push_recent_user(self, cache: Redis, user: UserRead):
         """Push user to cache to keep track of the recent users."""
@@ -39,8 +48,8 @@ class CacheRepository:
         Increments user total posts and forum total posts.
         """
         async with cache.pipeline() as pipe:
-            await pipe.incr(f"{USER_POSTS_KEY}:{user_id}")
-            await pipe.incr(f"{FORUM_POSTS_KEY}:{forum_id}")
+            await pipe.incr(f"{NUM_POSTS_PER_USER}:{user_id}")
+            await pipe.incr(f"{NUM_POSTS_PER_FORUM}:{forum_id}")
             await pipe.execute()
 
     async def on_post_deleted(self, cache: Redis, user_id: int, forum_id: int):
@@ -49,8 +58,8 @@ class CacheRepository:
         Decrements user total posts and forum total posts.
         """
         async with cache.pipeline() as pipe:
-            await pipe.decr(f"{USER_POSTS_KEY}:{user_id}")
-            await pipe.decr(f"{FORUM_POSTS_KEY}:{forum_id}")
+            await pipe.decr(f"{NUM_POSTS_PER_USER}:{user_id}")
+            await pipe.decr(f"{NUM_POSTS_PER_FORUM}:{forum_id}")
             await pipe.execute()
 
     async def on_thread_created(self, cache: Redis, forum_id: int):
@@ -58,14 +67,14 @@ class CacheRepository:
         Update cache after a thread is created.
         Increments forum total threads.
         """
-        await cache.incr(f"{FORUM_THREADS_KEY}:{forum_id}")
+        await cache.incr(f"{NUM_THREADS_PER_FORUM}:{forum_id}")
 
     async def on_thread_deleted(self, cache: Redis, forum_id: int):
         """
         Update cache after a thread is deleted.
         Decrements forum total threads.
         """
-        await cache.decr(f"{FORUM_THREADS_KEY}:{forum_id}")
+        await cache.decr(f"{NUM_THREADS_PER_FORUM}:{forum_id}")
 
     async def on_forum_read(self, cache: Redis, forum_id: int) -> tuple[int, int]:
         """
@@ -73,14 +82,61 @@ class CacheRepository:
         Returns the total posts and the number of threads.
         """
         async with cache.pipeline(transaction=False) as pipe:
-            await pipe.get(f"{FORUM_POSTS_KEY}:{forum_id}")
-            await pipe.get(f"{FORUM_THREADS_KEY}:{forum_id}")
+            await pipe.get(f"{NUM_POSTS_PER_FORUM}:{forum_id}")
+            await pipe.get(f"{NUM_THREADS_PER_FORUM}:{forum_id}")
             res = await pipe.execute()
         return (res[0] or 0, res[1] or 0)
 
     async def get_user_total_posts(self, cache: Redis, user_id: int) -> int | None:
         """Get the total number of posts of a user."""
-        return await cache.get(f"{USER_POSTS_KEY}:{user_id}")
+        return await cache.get(f"{NUM_POSTS_PER_USER}:{user_id}")
+
+    async def load_from_db(self, cache: Redis, db_session: AsyncSession):
+        """Load cache with data from the database."""
+        await self._load_threads(cache, db_session)
+        await self._load_posts(cache, db_session)
+        await self._load_user_posts(cache, db_session)
+
+    async def _load_threads(self, cache: Redis, db_session: AsyncSession):
+        """Load thread count per forum from database to cache."""
+        stmt = select(Thread.forum_id, func.count().label("n_threads")).group_by(
+            Thread.forum_id
+        )
+        res = await db_session.execute(stmt)
+
+        async with cache.pipeline() as pipe:
+            for row in res.all():
+                await pipe.set(f"{NUM_THREADS_PER_FORUM}:{row.forum_id}", row.n_threads)
+            await pipe.execute()
+
+    async def _load_posts(self, cache: Redis, db_session: AsyncSession):
+        """Load post count per forum from database to cache."""
+        stmt = (
+            select(Thread.forum_id, func.count().label("n_posts"))
+            .select_from(Post)
+            .join(Thread)
+            .group_by(Thread.forum_id)
+        )
+
+        res = await db_session.execute(stmt)
+
+        async with cache.pipeline() as pipe:
+            for row in res.all():
+                await pipe.set(f"{NUM_POSTS_PER_FORUM}:{row.forum_id}", row.n_posts)
+            await pipe.execute()
+
+    async def _load_user_posts(self, cache: Redis, db_session: AsyncSession):
+        """Load post count per user from database to cache."""
+        stmt = select(Post.author_id, func.count().label("n_posts")).group_by(
+            Post.author_id
+        )
+
+        res = await db_session.execute(stmt)
+
+        async with cache.pipeline() as pipe:
+            for row in res.all():
+                await pipe.set(f"{NUM_POSTS_PER_USER}:{row.author_id}", row.n_posts)
+            await pipe.execute()
 
 
 cache_repo = CacheRepository()
