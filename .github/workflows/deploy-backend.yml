@@ -1,0 +1,26 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Backend Tests"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    needs: tests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME  }}
+          key: ${{ secrets.KEY }}
+          script: |
+            cd ~/forum/backend
+            git fetch && git pull
+            docker compose -f compose.yml down
+            docker compose -f compose.yml up --build -d
