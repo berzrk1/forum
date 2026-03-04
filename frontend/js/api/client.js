@@ -1,6 +1,5 @@
 import { clearToken, setToken, setRole, setUserId, setUser, getUser, parseJwt } from "../state.js";
-
-const API_BASE_URL = "http://localhost:8000";
+import { API_BASE_URL } from "../config.js";
 
 let isRefreshing = false;
 let refreshPromise = null;

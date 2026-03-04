@@ -9,8 +9,7 @@ import { renderLogin, mountLogin } from "./pages/login.js";
 import { renderRegister, mountRegister } from "./pages/register.js";
 import { renderAdmin, mountAdmin } from "./pages/admin.js";
 import { isLoggedIn, isTokenExpired, getToken, getUser, parseJwt, setToken, setRole, setUserId, setUser, clearToken } from "./state.js";
-
-const API_BASE_URL = "http://localhost:8000";
+import { API_BASE_URL } from "./config.js";
 
 async function refreshTokenIfNeeded() {
   const token = getToken();
