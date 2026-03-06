@@ -9,5 +9,9 @@ dist/
 wheels/
 *.egg-info
 
+# npm files
+node_modules
+dist
+
 # Virtual environments
 .venv
