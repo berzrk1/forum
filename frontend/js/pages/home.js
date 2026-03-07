@@ -1,4 +1,3 @@
-import { getCategoryForums } from "../data/dummy.js";
 import { renderBreadcrumb } from "../components/breadcrumb.js";
 import { fetchAPI } from "../api/client.js";
 
@@ -89,68 +88,7 @@ export async function mountHome() {
     `;
   }).join("");
 
-  // Sample categories as fallback
-  const sampleCategories = getCategoryForums();
-  const sampleGroups = sampleCategories.map((cat) => {
-    const rows = cat.forums
-      .map(
-        (forum) => `
-        <tr>
-          <td class="forum-table__icon">&#128172;</td>
-          <td class="forum-table__title">
-            <a href="#/category/${forum.id}">${forum.name}</a>
-            <div class="forum-table__description">${forum.description}</div>
-          </td>
-          <td class="forum-table__stat">${forum.n_threads}</td>
-          <td class="forum-table__stat">${forum.n_posts}</td>
-          <td class="forum-table__lastpost">
-            <a href="#">${forum.lastPost.thread}</a><br>
-            by <strong>${forum.lastPost.author}</strong><br>
-            ${forum.lastPost.date}
-          </td>
-        </tr>
-      `
-      )
-      .join("");
-
-    return `
-      <div class="category-group">
-        <div class="category-group__header">${cat.groupName}</div>
-        <div class="forum-table">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:30px"></th>
-                <th>Forum</th>
-                <th style="width:70px">Threads</th>
-                <th style="width:70px">Posts</th>
-                <th style="width:180px">Last Post</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  // Build final HTML
-  let html = "";
-
-  if (realCategories.length > 0) {
-    html += realGroups;
-    html += `
-      <div style="margin: var(--spacing-lg) 0; padding: var(--spacing-md); background: var(--color-bg-alt); border: 1px dashed var(--color-border); text-align: center; color: var(--color-text-muted);">
-        &#9660; Sample Data Below (for reference) &#9660;
-      </div>
-    `;
-  }
-
-  html += sampleGroups;
-
-  container.innerHTML = html;
+  container.innerHTML = realGroups;
 
   // Store forum context on click for breadcrumbs
   container.addEventListener("click", (e) => {

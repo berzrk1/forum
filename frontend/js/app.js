@@ -2,7 +2,6 @@ import { addRoute, resolve } from "./router.js";
 import { renderHeader, mountHeader } from "./components/header.js";
 import { renderFooter } from "./components/footer.js";
 import { renderHome, mountHome } from "./pages/home.js";
-import { renderCategory } from "./pages/category.js";
 import { renderForum, mountForum } from "./pages/forum.js";
 import { renderThread, mountThread } from "./pages/thread.js";
 import { renderLogin, mountLogin } from "./pages/login.js";
@@ -66,7 +65,6 @@ async function refreshTokenIfNeeded() {
 
 // Register routes — each returns { html, mount? }
 addRoute("/", () => ({ html: renderHome(), mount: mountHome }));
-addRoute("/category/:id", ({ id }) => ({ html: renderCategory(Number(id)) }));
 addRoute("/forum/:id", ({ id }) => ({ html: renderForum(Number(id)), mount: mountForum }));
 addRoute("/thread/:id", ({ id }) => ({ html: renderThread(Number(id)), mount: mountThread }));
 addRoute("/login", () => ({ html: renderLogin(), mount: mountLogin }));
