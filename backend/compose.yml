@@ -29,6 +29,7 @@ services:
         condition: service_healthy
   cache:
     image: redis:latest
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
