@@ -1,6 +1,7 @@
 services:
   backend:
     container_name: forum-backend 
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
